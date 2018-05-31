@@ -15,6 +15,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -51,13 +52,14 @@ public class MainActivity extends AppCompatActivity {
                 // 許可されている
                 getContentsInfo();
             } else {
-                // 許可されていないので許可ダイアログを表示する
+                Toast.makeText(this, "許可してください", Toast.LENGTH_SHORT).show();
                 requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSIONS_REQUEST_CODE);
             }
             // Android 5系以下の場合
         } else {
             getContentsInfo();
         }
+
         //送り
         mNextButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -95,33 +97,56 @@ public class MainActivity extends AppCompatActivity {
         mPlayButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (mTimer == null) {
                     mTimer = new Timer();
 
+                    mNextButton.setEnabled(false);//使用できないようにする。
+                    mBuckButton.setEnabled(false);
+                    mPlayButton.setText("停止");
+
                     mTimer.schedule(new TimerTask() {
+                        @Override
+                        public void run() {//TimerTask run
+                            mHandler.post(new Runnable() {
+                                @Override
+                                public void run() {//movetonext run
+                                    if (mCursor.moveToNext()) {
 
-                    mHandler.post(new Runnable() {
-                            @Override
-                            public void run () {
-                                if (mCursor.moveToNext()) {
-                                }else {
-                                    mCursor.moveToFirst();
+                                        int fieldIndex = mCursor.getColumnIndex(MediaStore.Images.Media._ID);
+                                        Long id = mCursor.getLong(fieldIndex);
+                                        Uri imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+                                        ImageView imageView = findViewById(R.id.imageView);
+                                        imageView.setImageURI(imageUri);
 
-                                    int fieldIndex = mCursor.getColumnIndex(MediaStore.Images.Media._ID);
-                                    Long id = mCursor.getLong(fieldIndex);
-                                    Uri imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-                                    ImageView imageView = findViewById(R.id.imageView);
-                                    imageView.setImageURI(imageUri);
 
-                                    mNextButton.setEnabled(false);//使用できないようにする。
-                                    mBuckButton.setEnabled(false);
+                                    } else {
+                                        mCursor.moveToFirst();
 
+                                        int fieldIndex = mCursor.getColumnIndex(MediaStore.Images.Media._ID);
+                                        Long id = mCursor.getLong(fieldIndex);
+                                        Uri imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+                                        ImageView imageView = findViewById(R.id.imageView);
+                                        imageView.setImageURI(imageUri);
+
+
+                                    }
                                 }
-                                }
-                            }
-                    }, 100, 100); //TimerTask
+                            });
+                        }
+                    }, 2000, 2000); //TimerTask
+                } else {
+                    mNextButton.setEnabled(true);//使用できないようにする。
+                    mBuckButton.setEnabled(true);
+                    mPlayButton.setText("再生");
+                        mTimer.cancel();//タイマー停止
+                        mTimer = null;
+
+
                 }
-    });
-}
+            }
+        });
+    }
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
@@ -129,6 +154,11 @@ public class MainActivity extends AppCompatActivity {
             case PERMISSIONS_REQUEST_CODE:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     getContentsInfo();
+                }else {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        Toast.makeText(this, "許可してください", Toast.LENGTH_SHORT).show();
+                        requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSIONS_REQUEST_CODE);
+                    }
                 }
                 break;
             default:
@@ -147,10 +177,7 @@ public class MainActivity extends AppCompatActivity {
                 null, // フィルタ用パラメータ
                 null // ソート (null ソートなし)
         );
-
-
     }
-
 }
 
 
